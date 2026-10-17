@@ -1,0 +1,20 @@
+#!/bin/sh
+# The session on tty1: the client full screen (unseenet_web.boot), or with
+# "unseenet.text" on the kernel command line unseenet's own text menu.
+export TERM=linux
+export PATH=/opt/unseenet/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+export HOME=/root
+cd /root
+if grep -qw unseenet.selftest /proc/cmdline; then
+    echo "Self-test running - see the serial console."
+    exec sleep 3600
+fi
+if grep -qw unseenet.text /proc/cmdline; then
+    /opt/unseenet/bin/python -m unseenet.boot && exit 0
+else
+    /opt/unseenet/bin/python -m unseenet_web.boot && exit 0
+fi
+echo
+echo "Unseenet stopped with an error (see above)."
+echo "You get a shell; type 'exit' to try again."
+exec /bin/sh -l

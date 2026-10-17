@@ -1,11 +1,11 @@
-# Unseenet: the boot menu on the first console, plain logins on the others.
-# OpenRC's messages go to tty3 (Alt+F3) so the screen stays clean.
+# Unseenet (graphical): the splash, then the client full screen on the first
+# console; plain logins on the others. OpenRC's messages go to tty3 (Alt+F3).
 ::sysinit:/usr/local/bin/unseenet-splash
 ::sysinit:/sbin/openrc sysinit >/dev/tty3 2>&1
 ::sysinit:/sbin/openrc boot >/dev/tty3 2>&1
 ::wait:/sbin/openrc default >/dev/tty3 2>&1
 
-tty1::respawn:/usr/local/bin/unseenet-console
+tty1::respawn:/usr/local/bin/unseenet-session
 tty2::respawn:/sbin/getty 38400 tty2
 tty3::respawn:/sbin/getty 38400 tty3
 

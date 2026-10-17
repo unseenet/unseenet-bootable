@@ -1,7 +1,13 @@
 #!/bin/sh
-# The first thing on the screen while the system starts: the logo
-# (src/unseenet/logo.py, half blocks the console font has), or the name alone.
-exec > /dev/tty1 2>&1
-printf '\033[2J\033[H\033[?25l\n\n'
-/opt/unseenet/bin/python -m unseenet.logo 2>/dev/null || printf '\033[92m        U N S E E N E T\033[0m\n'
-printf '\n        Starting ...  (Alt+F3 shows the details)\n'
+# The first thing on the screen while the system starts: the logo on Unseenet
+# green (unseenet_web.splash, on the framebuffer), until the client's window is
+# up. Without a framebuffer: the name on the text console.
+printf '\033[2J\033[H\033[?25l' > /dev/tty1 2>/dev/null
+echo 0 > /sys/class/graphics/fbcon/cursor_blink 2>/dev/null
+if [ -e /dev/fb0 ] && grep -qvw unseenet.selftest /proc/cmdline; then
+    setsid /opt/unseenet/bin/python -m unseenet_web.splash /usr/share/unseenet/splash.rgba \
+        </dev/null >/dev/null 2>&1 &
+else
+    printf '\n\n\033[92m        U N S E E N E T\033[0m\n\n        Starting ...  (Alt+F3 shows the details)\n' > /dev/tty1
+fi
+exit 0

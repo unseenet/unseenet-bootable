@@ -13,3 +13,7 @@ ecb
 cbc
 des3_ede
 pkcs8_key_parser
+# the screen: generic drivers that work in most machines and in VMs
+simpledrm
+bochs
+virtio_gpu

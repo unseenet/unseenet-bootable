@@ -4,7 +4,7 @@
 grep -qw unseenet.selftest /proc/cmdline || exit 0
 {
     echo "UNSEENET-SELFTEST-BEGIN"
-    /opt/unseenet/bin/python -m unseenet.boot --self-test
+    HOME=/root /opt/unseenet/bin/python -m unseenet_web.boot --self-test
     echo "UNSEENET-SELFTEST-RESULT $?"
 } > /dev/ttyS0 2>&1
 sync
