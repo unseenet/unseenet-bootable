@@ -12,7 +12,7 @@
 # The result is one FAT32 partition, label UNSEENET, that is both
 #   - bootable (BIOS: syslinux, UEFI: GRUB): Alpine in "diskless" mode, from RAM,
 #     starting the web client full screen (unseenet_web.boot), and
-#   - a portable Unseenet folder (Start Unseenet Web.bat / .command / start-web-linux.sh)
+#   - a portable Unseenet folder (Unseenet Web.exe / Start Unseenet Web.command / start-web-linux.sh)
 #     for a computer that is already running,
 # sharing one data/ folder with the vault. Nothing here needs loop devices.
 set -eu

@@ -15,7 +15,7 @@ This stick (or card, or disk) can be used in two ways, with the same data:
    firmware settings (BIOS/UEFI setup).
 
 2. Use it on a running computer. Open the stick and start
-     Windows:  Start Unseenet Web.bat
+     Windows:  Unseenet Web.exe
      macOS:    Start Unseenet Web.command
      Linux:    sh start-web-linux.sh
 
