@@ -15,12 +15,12 @@ This stick (or card, or disk) can be used in two ways, with the same data:
    firmware settings (BIOS/UEFI setup).
 
 2. Use it on a running computer. Open the stick and start
-     Windows:  Unseenet Web.exe
-     macOS:    Start Unseenet Web.command
-     Linux:    sh start-web-linux.sh
+     Windows:  Unseenet Graphical.exe
+     macOS:    Start Unseenet Graphical.command
+     Linux:    sh start-graphical-linux.sh
 
 Both use data/ on this stick: your vault (keys, groups, contacts), the offline
 cache and Tor's state. The vault and the cache are encrypted with your
 passphrase. To move to another stick or a portable installation, copy data/.
 
-Pre-alpha: not security reviewed. https://github.com/unseenet/unseenet-web
+Pre-alpha: not security reviewed. https://github.com/unseenet/unseenet-gui

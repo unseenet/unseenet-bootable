@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Make the boot splash panel: the logo and the name, as raw RGBA for unseenet_web.splash.
+"""Make the boot splash panel: the logo and the name, as raw RGBA for unseenet_gui.splash.
 
     python3 make_splash.py ICON.svg OUT.rgba [OUT.png]
 

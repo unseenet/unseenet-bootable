@@ -5,14 +5,14 @@
 #
 # Adapted from unseenet's tools/image/build-in-alpine.sh: the same layout, boot
 # loaders and update zip, plus a graphical session (cage, a kiosk Wayland
-# compositor, showing the web client full screen through WebKitGTK).
+# compositor, showing the graphical client full screen through WebKitGTK).
 #
 #   /src/tools/image/build-in-alpine.sh OUT_DIR VERSION [PORTABLE_USB_ZIP]
 #
 # The result is one FAT32 partition, label UNSEENET, that is both
 #   - bootable (BIOS: syslinux, UEFI: GRUB): Alpine in "diskless" mode, from RAM,
-#     starting the web client full screen (unseenet_web.boot), and
-#   - a portable Unseenet folder (Unseenet Web.exe / Start Unseenet Web.command / start-web-linux.sh)
+#     starting the graphical client full screen (unseenet_gui.boot), and
+#   - a portable Unseenet folder (Unseenet Graphical.exe / Start Unseenet Graphical.command / start-graphical-linux.sh)
 #     for a computer that is already running,
 # sharing one data/ folder with the vault. Nothing here needs loop devices.
 set -eu
@@ -119,12 +119,12 @@ cp -a /src $W/web && rm -rf $W/web/.git $W/web/dist $W/web/dev
 /opt/unseenet/bin/pip install -q --no-cache-dir --no-deps "$W/web"
 /opt/unseenet/bin/pip install -q --no-cache-dir aiohttp pywebview
 sed -i "s/^__version__ = .*/__version__ = \"$VERSION\"/" \
-    /opt/unseenet/lib/python3*/site-packages/unseenet_web/__init__.py
+    /opt/unseenet/lib/python3*/site-packages/unseenet_gui/__init__.py
 find /opt/unseenet -name __pycache__ -type d -prune -exec rm -rf {} +
 
 log "the boot splash"
 mkdir -p $W/splash
-python3 "$HERE/make_splash.py" /src/src/unseenet_web/static/icon.svg $W/splash/splash.rgba "$OUT/splash.png"
+python3 "$HERE/make_splash.py" /src/src/unseenet_gui/static/icon.svg $W/splash/splash.rgba "$OUT/splash.png"
 
 log "system configuration (apkovl)"
 cp -a "$HERE/overlay/." "$OVL/"
@@ -177,7 +177,7 @@ else
     log "no portable builds given: boot only"
     touch "$TREE/UNSEENET-PORTABLE"
 fi
-cp "$HERE/README-boot.txt" "$TREE/BOOT-README-web.txt"
+cp "$HERE/README-boot.txt" "$TREE/BOOT-README-graphical.txt"
 echo "$VERSION" > "$TREE/UNSEENET-VERSION"
 # What this version puts on the stick: the next update removes what it no longer has.
 ( cd "$TREE" && { find . -type f ! -path './data/*' | sed 's#^\./##'; echo UNSEENET-FILES; } | sort ) > $W/files
@@ -186,7 +186,7 @@ mv $W/files "$TREE/UNSEENET-FILES"
 log "update zip (everything on the partition except data/)"
 # A stick updates itself from this (unseenet.update): the system files are
 # replaced and data/ is never touched. Made before data/ exists in the tree.
-UPD="$OUT/unseenet-web-$VERSION-$ARCH-update.zip"
+UPD="$OUT/unseenet-gui-$VERSION-$ARCH-update.zip"
 rm -f "$UPD"
 ( cd "$TREE" && zip -q -r -X "$UPD" . -x 'data/*' 'data' )
 mkdir -p "$TREE/data"
@@ -205,7 +205,7 @@ export MTOOLS_SKIP_CHECK=1
 mcopy -o -i "$FAT" "$TREE/apks/.boot_repository" ::/apks/.boot_repository
 syslinux --install --directory /boot/syslinux "$FAT"
 
-IMG="$OUT/unseenet-web-$VERSION-$ARCH.img"
+IMG="$OUT/unseenet-gui-$VERSION-$ARCH.img"
 rm -f "$IMG" "$IMG.xz"
 truncate -s "$(( SIZE + 1 ))M" "$IMG"
 printf 'label: dos\nstart=2048, type=c, bootable\n' | sfdisk -q "$IMG"
@@ -215,5 +215,5 @@ if [ -z "${NOXZ:-}" ]; then              # NOXZ=1: skip it while trying things o
     log "compressing"
     xz -T0 -6 -f -k "$IMG"
 fi
-ls -l "$OUT"/unseenet-web-*
+ls -l "$OUT"/unseenet-gui-*
 log "done: $IMG ($SIZE MB)"
