@@ -42,12 +42,16 @@ PACKAGES="alpine-base busybox-openrc openrc kbd-bkeymaps
   python3 ca-certificates-bundle tor iwd dbus dhcpcd util-linux-misc blkid dosfstools ncurses-terminfo-base
   eudev udev-init-scripts udev-init-scripts-openrc seatd seatd-openrc cage xkeyboard-config
   mesa-dri-gallium webkit2gtk-4.1 gtk+3.0 py3-gobject3 font-dejavu hicolor-icon-theme
-  adwaita-icon-theme grim"
+  adwaita-icon-theme grim
+  gmp libgmpxx libstdc++"
 
 log "tools"
 apk add --no-cache -q --no-scripts abuild apk-tools mkinitfs squashfs-tools syslinux grub-efi grub \
     mtools dosfstools sfdisk python3 py3-pip linux-lts kmod xz zip unzip $FIRMWARE \
     py3-gobject3 py3-pillow rsvg-convert font-dejavu git >/dev/null
+# chiavdf (key ripening, UN-RFC 0025) has no musl wheels: build it, without its timelord
+apk add --no-cache -q python3-dev cmake make g++ gmp-dev >/dev/null
+export BUILD_VDF_CLIENT=N
 
 rm -rf "$W" && mkdir -p "$TREE/boot" "$TREE/apks/$ARCH" "$OVL" "$OUT"
 KVER=$(ls /lib/modules | head -1)
