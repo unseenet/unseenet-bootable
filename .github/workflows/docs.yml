@@ -1,0 +1,9 @@
+name: docs
+# docs/ checked strictly on pull requests, as unseenet-docs gathers it into unseenet.org
+on:
+  pull_request:
+    paths: ["docs/**", "mkdocs.yml"]
+  workflow_dispatch:
+jobs:
+  docs:
+    uses: unseenet/.github/.github/workflows/docs-check.yml@main
