@@ -1,41 +1,110 @@
-# unseenet-bootable
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/unseenet/unseenet/main/assets/logo-dark.svg">
+    <img src="https://raw.githubusercontent.com/unseenet/unseenet/main/assets/logo-light.svg" alt="Unseenet" width="360">
+  </picture>
+</p>
 
-Builds the bootable Unseenet images - **Bootable · Terminal** and **Bootable · Graphical**, Alpine from memory, self-tested in QEMU - and later a node mode (unseenet#551) and a Raspberry Pi node image (unseenet#552).
+<h1 align="center">unseenet-bootable</h1>
 
-Takes the USB zips from unseenet-portable, so both are made from the same parts. Same runs, versions and signing as unseenet-portable.
+<p align="center"><b>Boot straight into Unseenet - from a USB stick, an SD card or a disk.</b><br>
+Runs from memory, touches nothing on the computer, and the same stick works as a portable on a running one.</p>
 
-> **Being set up** ([unseenet#550](https://github.com/unseenet/unseenet/issues/550), part of [unseenet#391](https://github.com/unseenet/unseenet/issues/391)). Until it is, the images people download are still made in [unseenet](https://github.com/unseenet/unseenet/releases) and [unseenet-gui](https://github.com/unseenet/unseenet-gui/releases).
+<p align="center">
+  <a href="https://github.com/unseenet/unseenet-bootable/releases"><img src="https://img.shields.io/github/v/release/unseenet/unseenet-bootable?include_prereleases&label=release" alt="Release"></a>
+  <a href="https://github.com/unseenet/unseenet-bootable/actions/workflows/build.yml"><img src="https://github.com/unseenet/unseenet-bootable/actions/workflows/build.yml/badge.svg" alt="build"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="Apache-2.0"></a>
+</p>
 
-## How it builds
+> **Pre-alpha.** Nothing is stable yet, and Unseenet has not had a security
+> review. Do not rely on it to protect anyone yet.
 
-[`.github/workflows/build.yml`](.github/workflows/build.yml) takes the USB
-zips of the portable builds, makes the terminal and the graphical image,
-boots each in QEMU (BIOS and UEFI) and runs its self-test. For now the image
-tools are run from checkouts of unseenet and unseenet-gui; next they move
-here.
+<table align="center"><tr>
+<td align="center"><img src="docs/img/boot-menu.png" alt="Bootable · Terminal: the Unseenet menu - client, node, monitor, Wi-Fi, keyboard" width="420"><br><sub><b>Bootable · Terminal</b>: the menu</sub></td>
+<td align="center"><img src="https://raw.githubusercontent.com/unseenet/unseenet-gui/main/docs/img/boot.gif" alt="Bootable · Graphical: the splash, then the client full screen" width="420"><br><sub><b>Bootable · Graphical</b>: the client full screen</sub></td>
+</tr></table>
+
+## What it is
+
+A bootable [Unseenet](https://unseenet.org): Alpine Linux, Tor and the
+client on one stick. Boot a computer from it and Unseenet runs from memory -
+nothing is written to the computer's disk, and when you pull the stick out
+nothing is left. On a computer that is already running, the same stick opens
+like the [portable builds](https://github.com/unseenet/unseenet-portable),
+with the same `data/` folder, so your keys and groups come along either way.
+
+| | |
+|---|---|
+| **Bootable · Terminal** | a menu with the terminal client, a node of your own, the node monitor, Wi-Fi, keyboard and clock |
+| **Bootable · Graphical** | the graphical client full screen, with network, keyboard and power at the top |
+
+## Get it
+
+From the [releases](https://github.com/unseenet/unseenet-bootable/releases) (or the
+newest [development images](https://github.com/unseenet/unseenet-bootable/releases/tag/dev)):
+`unseenet-<version>-x86_64.img.xz` (terminal) or
+`unseenet-gui-<version>-x86_64.img.xz` (graphical). Check it against
+`SHA256SUMS.txt` from the same release.
+
+Write it to a stick of 2 GB or more (4 GB memory for the graphical one) -
+**everything on the stick is erased** - with
+[balenaEtcher](https://etcher.balena.io/), [Rufus](https://rufus.ie/) (DD
+mode) or:
+
+```bash
+xzcat unseenet-<version>-x86_64.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
+```
+
+Then restart with the stick in and choose it in the boot menu (often **F12**,
+F11, F9, Esc; on a Mac hold **Option**). BIOS and UEFI both work; turn
+**Secure Boot** off, as the image is not signed by Microsoft. The stick
+updates itself from the menu: it fetches the newest signed image over Tor
+and keeps `data/`.
+
+**The full guide:** [Bootable](https://unseenet.org/bootable/) - writing it,
+booting, the menu, your data, updating.
+
+## How it works
+
+This repository holds no client code. Each night, after the
+[portable builds](https://github.com/unseenet/unseenet-portable), its
+workflow takes their USB zips, builds the terminal and the graphical image
+(Alpine from memory, the portable builds on the same FAT partition), and
+**boots each in QEMU, BIOS and UEFI, where its self-test must pass** -
+Tor connecting included. It only builds when the zips or the image tools
+changed; the images are signed with the build repositories' release key and
+announced in `unseenet.releases`, so sticks hear of them through the network.
 
 | When | What |
 |---|---|
-| each night, after unseenet-portable | only if the USB zips or the image tools changed since the `dev` images; replaces `dev`, signed with the CI release key |
+| each night, after unseenet-portable | only if the zips or the image tools changed; replaces `dev` |
 | by hand | *Run workflow*: `publish`, `force`, and where the zips come from |
 | a pull request | the images as artifacts |
 
-Until unseenet-portable publishes its `dev` pre-release, the zips come from
-the `dev` pre-releases of unseenet and unseenet-gui. Publishing `dev` here
-needs the repository secret `UNSEENET_RELEASE_KEY`.
+## Develop
+
+For now the image tools are run from checkouts of unseenet and unseenet-gui
+(`tools/image/` in each); next they move here (unseenet#550). Coming on this
+base: a node mode with an encrypted partition and a setup menu
+(unseenet#551), and a Raspberry Pi image that runs a node (unseenet#552).
+
+## Versions and releases
+
+Images are versioned as the core they carry, like the portable builds
+(`0.6.0`, a rebuild `0.6.0.post1`), and are released together with them;
+the maintainer signs a release's `SHA256SUMS.txt` with the project key.
+Notes are in [CHANGELOG.md](CHANGELOG.md).
 
 ## Part of Unseenet
-
-Unseenet is made in several repositories, each released on its own:
 
 | Repository | What it is |
 |---|---|
 | [unseenet](https://github.com/unseenet/unseenet) | The protocol (UN-RFCs), the core library, the node and the command-line client |
-| [unseenet-tui](https://github.com/unseenet/unseenet-tui) | The terminal client (moving here from unseenet, unseenet#548) |
+| [unseenet-tui](https://github.com/unseenet/unseenet-tui) | The terminal client |
 | [unseenet-gui](https://github.com/unseenet/unseenet-gui) | The graphical client - in a window, booted, or in a browser |
-| [unseenet-portable](https://github.com/unseenet/unseenet-portable) | Builds the portable clients, Terminal and Graphical, with Tor inside (unseenet#549) |
-| [unseenet-bootable](https://github.com/unseenet/unseenet-bootable) | Builds the bootable images, Terminal and Graphical, and later a node image (unseenet#550) |
-| [unseenet-docs](https://github.com/unseenet/unseenet-docs) | The site [unseenet.org](https://unseenet.org), gathering the docs of every repository (unseenet#547) |
+| [unseenet-portable](https://github.com/unseenet/unseenet-portable) | Builds the portable clients, Terminal and Graphical, with Tor inside |
+| [unseenet-bootable](https://github.com/unseenet/unseenet-bootable) | Builds the bootable images, Terminal and Graphical |
+| [unseenet-docs](https://github.com/unseenet/unseenet-docs) | The site [unseenet.org](https://unseenet.org) |
 | [unseenet-entrance](https://github.com/unseenet/unseenet-entrance) | Web entrances: the graphical client in an ordinary browser |
 | [unseenet-gateway](https://github.com/unseenet/unseenet-gateway) | Gateways to other networks: Usenet, Nostr, Matrix |
 | [unseenet-bots](https://github.com/unseenet/unseenet-bots) | Bots that keep channels filled with current content |
@@ -46,4 +115,4 @@ Unseenet is made in several repositories, each released on its own:
 
 ## License
 
-[Apache License 2.0](LICENSE).
+[Apache License 2.0](LICENSE). The Unseenet logo: CC BY 4.0.
