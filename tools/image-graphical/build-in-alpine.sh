@@ -118,7 +118,10 @@ log "Unseenet itself (a Python environment for the running system)"
 # py3-gobject3, which is not on PyPI in a form that runs on musl.
 python3 -m venv --system-site-packages /opt/unseenet
 cp -a /core $W/core && rm -rf $W/core/.git
-/opt/unseenet/bin/pip install -q --no-cache-dir "$W/core[tui]"
+# "text only" in the boot menu starts the terminal client, from unseenet-tui
+# (unseenet#548); UNSEENET_TUI names which
+TUI=${UNSEENET_TUI:-"unseenet-tui @ https://github.com/unseenet/unseenet-tui/archive/refs/heads/main.tar.gz"}
+/opt/unseenet/bin/pip install -q --no-cache-dir "$W/core" "$TUI"
 cp -a /src $W/web && rm -rf $W/web/.git $W/web/dist $W/web/dev
 /opt/unseenet/bin/pip install -q --no-cache-dir --no-deps "$W/web"
 /opt/unseenet/bin/pip install -q --no-cache-dir aiohttp pywebview

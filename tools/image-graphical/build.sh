@@ -19,5 +19,5 @@ if [ -n "${2:-}" ]; then
     cp "$2" dist/image/portable-usb.zip
     ZIP=/src/dist/image/portable-usb.zip
 fi
-exec "$ENGINE" run --rm -e NOXZ="${NOXZ:-}" -v "$PWD:/src:z" -v "$CORE:/core:ro,z" "$ALPINE" \
+exec "$ENGINE" run --rm -e NOXZ="${NOXZ:-}" -e UNSEENET_TUI="${UNSEENET_TUI:-}" -v "$PWD:/src:z" -v "$CORE:/core:ro,z" "$ALPINE" \
     sh /src/tools/image/build-in-alpine.sh /src/dist/image "$VERSION" $ZIP
