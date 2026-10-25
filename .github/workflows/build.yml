@@ -1,0 +1,242 @@
+name: build
+# The bootable Unseenet images (unseenet#550): Alpine from memory, written to a
+# USB stick, SSD or disk, the portable builds on the same FAT partition.
+#   Bootable · Terminal   unseenet-<version>-x86_64.img.xz (+ -update.zip)
+#   Bootable · Graphical  unseenet-gui-<version>-x86_64.img.xz
+# Each is booted in QEMU, BIOS and UEFI, and its self-test must pass.
+#
+# Made from the USB zips of unseenet-portable, so the portable and bootable
+# builds are made of the same parts. Until unseenet-portable publishes its own
+# "dev" pre-release, the zips come from the dev pre-releases of unseenet and
+# unseenet-gui ("legacy"). For now the image tools are run from checkouts of
+# unseenet and unseenet-gui; they move here next.
+#
+# When: each night after the portable builds, only when the zips or the image
+# tools changed since the "dev" build here; by hand; on pull requests (as
+# artifacts). Publishing "dev" needs the secret UNSEENET_RELEASE_KEY.
+on:
+  schedule:
+    - cron: "17 5 * * *"           # after unseenet-portable (03:17) has finished
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "dev = replace the dev pre-release (main only); artifact = workflow artifacts only"
+        type: choice
+        options: [dev, artifact]
+        default: dev
+      force:
+        type: boolean
+        default: false
+      zips:
+        description: "Where the USB zips come from: portable (unseenet-portable dev) or legacy (unseenet and unseenet-gui dev)"
+        type: choice
+        options: [auto, portable, legacy]
+        default: auto
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
+
+jobs:
+  gate:
+    uses: unseenet/.github/.github/workflows/nightly-gate.yml@main
+    with:
+      sources: unseenet/unseenet unseenet/unseenet-gui
+      force: ${{ inputs.force || false }}
+
+  zips:
+    # Fetch the USB zips, and decide whether to build: the gate said so (tools
+    # changed), or the zips are not the ones the dev build here was made from.
+    needs: gate
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.decide.outputs.build }}
+      lines: ${{ steps.decide.outputs.lines }}
+    steps:
+      - name: Fetch the USB zips
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FROM: ${{ inputs.zips || 'auto' }}
+        run: |
+          mkdir -p usb/terminal usb/graphical
+          if [ "$FROM" != legacy ] && gh release view dev -R unseenet/unseenet-portable >/dev/null 2>&1; then
+            gh release download dev -R unseenet/unseenet-portable -p 'unseenet-*-usb.zip' -D usb/all
+            mv usb/all/unseenet-gui-*-usb.zip usb/graphical/ && mv usb/all/unseenet-*-usb.zip usb/terminal/
+            echo "From unseenet-portable dev."
+          elif [ "$FROM" = portable ]; then
+            echo "unseenet-portable has no dev pre-release yet" >&2; exit 1
+          else
+            gh release download dev -R unseenet/unseenet -p 'unseenet-*-usb.zip' -D usb/terminal
+            gh release download dev -R unseenet/unseenet-gui -p 'unseenet-gui-*-usb.zip' -D usb/graphical
+            echo "From the dev pre-releases of unseenet and unseenet-gui (legacy)."
+          fi
+          ls -l usb/*
+      - id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GATE: ${{ needs.gate.outputs.build }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          LINES=$(cd usb && sha256sum */*.zip | awk '{print "Made from " $2 " " $1}')
+          { echo "lines<<EOF_LINES"; echo "$LINES"; echo "EOF_LINES"; } >> "$GITHUB_OUTPUT"
+          if [ "$GATE" = true ] && { [ "$EVENT" != schedule ] && [ "$EVENT" != workflow_dispatch ]; } ; then
+            echo "build=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          NOTES=$(gh release view dev -R "$GITHUB_REPOSITORY" --json body -q .body 2>/dev/null || true)
+          SAME=true
+          while read -r line; do echo "$NOTES" | grep -qF "$line" || SAME=false; done <<< "$LINES"
+          if [ "$GATE" = true ] || [ "$SAME" = false ]; then echo "build=true" >> "$GITHUB_OUTPUT"
+          else echo "Nothing changed: skipping."; echo "build=false" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: usb
+          path: usb/
+          compression-level: 0
+
+  terminal:
+    needs: [gate, zips]
+    if: needs.zips.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: unseenet/unseenet
+          ref: ${{ fromJSON(needs.gate.outputs.shas)['unseenet/unseenet'] }}
+          path: core
+      - uses: actions/download-artifact@v4
+        with:
+          name: usb
+          path: usb
+      - name: Build
+        working-directory: core
+        run: |
+          ZIP=$(ls ../usb/terminal/*-usb.zip)
+          VERSION=$(basename "$ZIP" | sed 's/^unseenet-\(.*\)-usb\.zip$/\1/')
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          VERSION=$VERSION sh tools/image/build.sh "$ZIP"
+      - name: Boot it in QEMU (BIOS and UEFI) and run its self-test
+        working-directory: core
+        run: |
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y -qq qemu-system-x86 ovmf mtools socat >/dev/null
+          sudo chmod a+rw /dev/kvm 2>/dev/null || true
+          sudo chown -R "$(id -u)" dist
+          IMG=dist/image/unseenet-$VERSION-x86_64.img
+          TIMEOUT=900 sh tools/image/boot-test.sh "$IMG" bios
+          TIMEOUT=900 sh tools/image/boot-test.sh "$IMG" uefi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image-terminal
+          path: |
+            core/dist/image/unseenet-*.img.xz
+            core/dist/image/unseenet-*-update.zip
+          compression-level: 0
+
+  graphical:
+    needs: [gate, zips]
+    if: needs.zips.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: unseenet/unseenet-gui
+          ref: ${{ fromJSON(needs.gate.outputs.shas)['unseenet/unseenet-gui'] }}
+          path: gui
+      - uses: actions/checkout@v4
+        with:
+          repository: unseenet/unseenet
+          ref: ${{ fromJSON(needs.gate.outputs.shas)['unseenet/unseenet'] }}
+          path: core
+      - uses: actions/download-artifact@v4
+        with:
+          name: usb
+          path: usb
+      - name: Build
+        working-directory: gui
+        run: |
+          ZIP=$(ls ../usb/graphical/*-usb.zip)
+          VERSION=$(basename "$ZIP" | sed 's/^unseenet-gui-\(.*\)-usb\.zip$/\1/')
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          VERSION=$VERSION sh tools/image/build.sh ../core "$ZIP"
+      - name: Boot it in QEMU (BIOS and UEFI) and run its self-test
+        working-directory: gui
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-system-x86 ovmf mtools >/dev/null
+          sudo chmod a+rw /dev/kvm 2>/dev/null || true
+          sudo chown -R "$(id -u)" dist
+          IMG=dist/image/unseenet-gui-$VERSION-x86_64.img
+          TIMEOUT=1200 sh tools/image/boot-test.sh "$IMG" bios
+          TIMEOUT=1200 sh tools/image/boot-test.sh "$IMG" uefi
+      - name: The splash, the self-test's screenshots and the boot logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: image-graphical-checks
+          path: |
+            gui/dist/image/splash.png
+            gui/dist/image/selftest-screen-*.png
+            gui/dist/image/boot-test-*.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image-graphical
+          path: gui/dist/image/unseenet-gui-*.img.xz
+          compression-level: 0
+
+  dev:
+    needs: [gate, zips, terminal, graphical]
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'schedule' ||
+       (github.event_name == 'workflow_dispatch' && inputs.publish == 'dev'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      HAS_KEY: ${{ secrets.UNSEENET_RELEASE_KEY != '' }}
+    steps:
+      - if: env.HAS_KEY != 'true'
+        run: echo "::warning::UNSEENET_RELEASE_KEY is not set here, so the images stay artifacts and dev is not replaced."
+      - if: env.HAS_KEY == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: unseenet/unseenet
+          ref: ${{ fromJSON(needs.gate.outputs.shas)['unseenet/unseenet'] }}
+          path: core
+      - if: env.HAS_KEY == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: image-*
+          path: files
+          merge-multiple: true
+      - if: env.HAS_KEY == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Checksums, signed with the release key (sticks on the dev channel check them)
+        if: env.HAS_KEY == 'true'
+        env:
+          UNSEENET_RELEASE_KEY: ${{ secrets.UNSEENET_RELEASE_KEY }}
+        run: |
+          rm -f files/*.png files/*.log
+          pip install -q ./core
+          (cd files && sha256sum *.img.xz *.zip > SHA256SUMS.txt)
+          python core/tools/sign_sums.py files/SHA256SUMS.txt
+      - name: Replace the dev pre-release
+        if: env.HAS_KEY == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILT_FROM: ${{ needs.gate.outputs.built-from }}
+          MADE_FROM: ${{ needs.zips.outputs.lines }}
+        run: |
+          { echo "**Development images** - the bootable builds of the newest nightly portable builds, booted and self-tested in QEMU. Not a release."; echo
+            echo "$BUILT_FROM"; echo "$MADE_FROM"; } > notes.md
+          gh release delete dev --yes --cleanup-tag -R "$GITHUB_REPOSITORY" 2>/dev/null || true
+          gh release create dev files/* --prerelease --latest=false -R "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" --title "Development images" --notes-file notes.md
