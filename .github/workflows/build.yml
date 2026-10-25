@@ -53,6 +53,8 @@ jobs:
     # changed), or the zips are not the ones the dev build here was made from.
     needs: gate
     runs-on: ubuntu-latest
+    env:
+      HAS_KEY: ${{ secrets.UNSEENET_RELEASE_KEY != '' }}
     outputs:
       build: ${{ steps.decide.outputs.build }}
       lines: ${{ steps.decide.outputs.lines }}
@@ -83,6 +85,10 @@ jobs:
         run: |
           LINES=$(cd usb && sha256sum */*.zip | awk '{print "Made from " $2 " " $1}')
           { echo "lines<<EOF_LINES"; echo "$LINES"; echo "EOF_LINES"; } >> "$GITHUB_OUTPUT"
+          if [ "$EVENT" = schedule ] && [ "$HAS_KEY" != true ]; then
+            echo "::notice::No release key here yet: the nightly build is skipped."
+            echo "build=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
           if [ "$GATE" = true ] && { [ "$EVENT" != schedule ] && [ "$EVENT" != workflow_dispatch ]; } ; then
             echo "build=true" >> "$GITHUB_OUTPUT"; exit 0
           fi
