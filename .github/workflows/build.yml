@@ -45,7 +45,7 @@ jobs:
   gate:
     uses: unseenet/.github/.github/workflows/nightly-gate.yml@main
     with:
-      sources: unseenet/unseenet unseenet/unseenet-gui
+      sources: unseenet/unseenet unseenet/unseenet-tui unseenet/unseenet-gui
       force: ${{ inputs.force || false }}
 
   zips:
@@ -124,6 +124,8 @@ jobs:
           ZIP=$(ls ../usb/terminal/*-usb.zip)
           VERSION=$(basename "$ZIP" | sed 's/^unseenet-\(.*\)-usb\.zip$/\1/')
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          # the terminal client, at the commit the gate saw (unseenet#548)
+          export UNSEENET_TUI="unseenet-tui @ https://github.com/unseenet/unseenet-tui/archive/${{ fromJSON(needs.gate.outputs.shas)['unseenet/unseenet-tui'] }}.tar.gz"
           VERSION=$VERSION sh tools/image/build.sh "$ZIP"
       - name: Boot it in QEMU (BIOS and UEFI) and run its self-test
         working-directory: core
