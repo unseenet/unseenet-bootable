@@ -3,7 +3,7 @@
 One stick (or SD card, or disk) that you can **boot from** - Unseenet in a
 text console, running from memory, touching nothing on the computer - and
 that you can also **use on a running computer**, like the
-[portable builds](portable.md). Both ways use the same `data/` folder, so
+[portable builds](https://unseenet.org/portable/). Both ways use the same `data/` folder, so
 your keys and groups come along either way.
 
 ![The boot menu](img/boot-menu.png)
@@ -58,7 +58,7 @@ After half a minute the Unseenet menu comes up:
 |---|---|
 | **Client** | The terminal client, with the vault in `data/` on the stick |
 | **Node** | Run a node from the stick; its data is in `data/node/`, its settings in `data/node/node.toml` |
-| **Monitor** | [How the node is doing](node/monitor.md) |
+| **Monitor** | [How the node is doing](https://unseenet.org/node/monitor/) |
 | **Wi-Fi** | Pick a network and type its password. A network cable works by itself |
 | **Keyboard** | The layout of your keyboard (remembered on the stick) |
 | **Clock** | Tor needs the right time; many computers keep local time instead of UTC |
@@ -74,13 +74,13 @@ system's start-up messages.
 On a computer that is already running, open the stick and start
 *Start Unseenet.bat* (Windows), *Start Unseenet.command* (macOS) or
 `sh start-linux.sh` (Linux) - exactly as described for the
-[portable builds](portable.md#start-it).
+[portable builds](https://unseenet.org/portable/#start-it).
 
 ## Updating
 
 Choose **Update** in the menu: the stick fetches the newest release over
 Tor, checks its signature, replaces the system files and restarts. **`data/`
-is kept.** All about it, also without a network: [Updating](updating.md).
+is kept.** All about it, also without a network: [Updating](https://unseenet.org/updating/).
 
 ## Your data
 
