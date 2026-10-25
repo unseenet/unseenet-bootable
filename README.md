@@ -4,7 +4,25 @@ Builds the bootable Unseenet images - **Bootable · Terminal** and **Bootable ·
 
 Takes the USB zips from unseenet-portable, so both are made from the same parts. Same runs, versions and signing as unseenet-portable.
 
-> **Being set up** ([unseenet#550](https://github.com/unseenet/unseenet/issues/550), part of [unseenet#391](https://github.com/unseenet/unseenet/issues/391)). Until it is, this lives in [unseenet](https://github.com/unseenet/unseenet).
+> **Being set up** ([unseenet#550](https://github.com/unseenet/unseenet/issues/550), part of [unseenet#391](https://github.com/unseenet/unseenet/issues/391)). Until it is, the images people download are still made in [unseenet](https://github.com/unseenet/unseenet/releases) and [unseenet-gui](https://github.com/unseenet/unseenet-gui/releases).
+
+## How it builds
+
+[`.github/workflows/build.yml`](.github/workflows/build.yml) takes the USB
+zips of the portable builds, makes the terminal and the graphical image,
+boots each in QEMU (BIOS and UEFI) and runs its self-test. For now the image
+tools are run from checkouts of unseenet and unseenet-gui; next they move
+here.
+
+| When | What |
+|---|---|
+| each night, after unseenet-portable | only if the USB zips or the image tools changed since the `dev` images; replaces `dev`, signed with the CI release key |
+| by hand | *Run workflow*: `publish`, `force`, and where the zips come from |
+| a pull request | the images as artifacts |
+
+Until unseenet-portable publishes its `dev` pre-release, the zips come from
+the `dev` pre-releases of unseenet and unseenet-gui. Publishing `dev` here
+needs the repository secret `UNSEENET_RELEASE_KEY`.
 
 ## Part of Unseenet
 
