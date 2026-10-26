@@ -112,10 +112,13 @@ builds for Windows, macOS and Linux.
 It is built with one script, `tools/image/build.sh`, in an Alpine container,
 and booted in QEMU by GitHub Actions for every change (BIOS and UEFI), where
 its self-test must pass with Tor connecting. Everything is in
-[`tools/image/`](https://github.com/unseenet/unseenet/tree/main/tools/image) -
+[`tools/image/`](https://github.com/unseenet/unseenet-bootable/tree/main/tools/image)
+(the graphical image: [`tools/image-graphical/`](https://github.com/unseenet/unseenet-bootable/tree/main/tools/image-graphical)) -
 small and plain on purpose, so you can build a nicer one on top.
 
 ```bash
-tools/image/build.sh unseenet-0.3.0-usb.zip       # dist/image/unseenet-*.img(.xz)
+git clone https://github.com/unseenet/unseenet-bootable && cd unseenet-bootable
+git clone https://github.com/unseenet/unseenet core
+tools/image/build.sh core unseenet-0.5.0-usb.zip   # dist/image/unseenet-*.img(.xz)
 tools/image/boot-test.sh dist/image/unseenet-*.img uefi
 ```

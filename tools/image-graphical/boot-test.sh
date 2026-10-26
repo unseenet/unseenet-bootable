@@ -1,7 +1,7 @@
 #!/bin/sh
 # Boot the image in QEMU and run its self-test on the serial console.
 #
-#   tools/image/boot-test.sh IMAGE [bios|uefi]
+#   tools/image-graphical/boot-test.sh IMAGE [bios|uefi]
 #
 # A copy of the image boots the "Self-test" entry by itself; the test prints
 # UNSEENET-SELFTEST-OK or -FAILED and shuts the machine down.

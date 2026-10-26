@@ -1,6 +1,7 @@
 #!/bin/sh
 # Builds the bootable Unseenet image. Runs as root in an Alpine container
-# (tools/image/build.sh starts it); the repository is mounted at /src.
+# (tools/image/build.sh starts it); this repository is mounted at /src and a
+# checkout of unseenet (the core) at /core.
 #
 #   /src/tools/image/build-in-alpine.sh OUT_DIR VERSION [PORTABLE_USB_ZIP]
 #
@@ -106,7 +107,8 @@ log "Unseenet itself (a Python environment for the running system)"
 python3 -m venv /opt/unseenet
 # the terminal client comes from unseenet-tui (#548); UNSEENET_TUI names which
 TUI=${UNSEENET_TUI:-"unseenet-tui @ https://github.com/unseenet/unseenet-tui/archive/refs/heads/main.tar.gz"}
-/opt/unseenet/bin/pip install -q --no-cache-dir "/src[monitor]" "$TUI"
+cp -a /core $W/core && rm -rf $W/core/.git           # /core is read-only; pip builds in it
+/opt/unseenet/bin/pip install -q --no-cache-dir "$W/core[monitor]" "$TUI"
 sed -i "s/^__version__ = .*/__version__ = \"$VERSION\"/" \
     /opt/unseenet/lib/python3*/site-packages/unseenet/__init__.py
 find /opt/unseenet -name __pycache__ -type d -prune -exec rm -rf {} +

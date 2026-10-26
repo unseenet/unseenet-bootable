@@ -8,8 +8,10 @@ name: build
 # Made from the USB zips of unseenet-portable, so the portable and bootable
 # builds are made of the same parts. Until unseenet-portable publishes its own
 # "dev" pre-release, the zips come from the dev pre-releases of unseenet and
-# unseenet-gui ("legacy"). For now the image tools are run from checkouts of
-# unseenet and unseenet-gui; they move here next.
+# unseenet-gui ("legacy"). The image tools are this repository's
+# (tools/image/ for the terminal image, tools/image-graphical/ for the
+# graphical one, unseenet-bootable#5), run on checkouts of unseenet and
+# unseenet-gui at the commits the gate saw.
 #
 # When: each night after the portable builds, only when the zips or the image
 # tools changed since the "dev" build here; by hand; on pull requests (as
@@ -110,6 +112,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
+      - uses: actions/checkout@v4          # this repository, first: the image tools
       - uses: actions/checkout@v4
         with:
           repository: unseenet/unseenet
@@ -120,16 +123,14 @@ jobs:
           name: usb
           path: usb
       - name: Build
-        working-directory: core
         run: |
-          ZIP=$(ls ../usb/terminal/*-usb.zip)
+          ZIP=$(ls usb/terminal/*-usb.zip)
           VERSION=$(basename "$ZIP" | sed 's/^unseenet-\(.*\)-usb\.zip$/\1/')
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           # the terminal client, at the commit the gate saw (unseenet#548)
           export UNSEENET_TUI="unseenet-tui @ https://github.com/unseenet/unseenet-tui/archive/${{ fromJSON(needs.gate.outputs.shas)['unseenet/unseenet-tui'] }}.tar.gz"
-          VERSION=$VERSION sh tools/image/build.sh "$ZIP"
+          VERSION=$VERSION sh tools/image/build.sh core "$ZIP"
       - name: Boot it in QEMU (BIOS and UEFI) and run its self-test
-        working-directory: core
         run: |
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y -qq qemu-system-x86 ovmf mtools socat >/dev/null
@@ -142,8 +143,8 @@ jobs:
         with:
           name: image-terminal
           path: |
-            core/dist/image/unseenet-*.img.xz
-            core/dist/image/unseenet-*-update.zip
+            dist/image/unseenet-*.img.xz
+            dist/image/unseenet-*-update.zip
           compression-level: 0
 
   graphical:
@@ -152,6 +153,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
+      - uses: actions/checkout@v4          # this repository, first: the image tools
       - uses: actions/checkout@v4
         with:
           repository: unseenet/unseenet-gui
@@ -167,35 +169,33 @@ jobs:
           name: usb
           path: usb
       - name: Build
-        working-directory: gui
         run: |
-          ZIP=$(ls ../usb/graphical/*-usb.zip)
+          ZIP=$(ls usb/graphical/*-usb.zip)
           VERSION=$(basename "$ZIP" | sed 's/^unseenet-gui-\(.*\)-usb\.zip$/\1/')
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          VERSION=$VERSION sh tools/image/build.sh ../core "$ZIP"
+          VERSION=$VERSION sh tools/image-graphical/build.sh gui core "$ZIP"
       - name: Boot it in QEMU (BIOS and UEFI) and run its self-test
-        working-directory: gui
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq qemu-system-x86 ovmf mtools >/dev/null
           sudo chmod a+rw /dev/kvm 2>/dev/null || true
           sudo chown -R "$(id -u)" dist
           IMG=dist/image/unseenet-gui-$VERSION-x86_64.img
-          TIMEOUT=1200 sh tools/image/boot-test.sh "$IMG" bios
-          TIMEOUT=1200 sh tools/image/boot-test.sh "$IMG" uefi
+          TIMEOUT=1200 sh tools/image-graphical/boot-test.sh "$IMG" bios
+          TIMEOUT=1200 sh tools/image-graphical/boot-test.sh "$IMG" uefi
       - name: The splash, the self-test's screenshots and the boot logs
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: image-graphical-checks
           path: |
-            gui/dist/image/splash.png
-            gui/dist/image/selftest-screen-*.png
-            gui/dist/image/boot-test-*.log
+            dist/image/splash.png
+            dist/image/selftest-screen-*.png
+            dist/image/boot-test-*.log
       - uses: actions/upload-artifact@v4
         with:
           name: image-graphical
-          path: gui/dist/image/unseenet-gui-*.img.xz
+          path: dist/image/unseenet-gui-*.img.xz
           compression-level: 0
 
   dev:

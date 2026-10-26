@@ -1,13 +1,13 @@
 #!/bin/sh
 # Builds the bootable, graphical Unseenet image. Runs as root in an Alpine
-# container (tools/image/build.sh starts it); this repository is mounted at /src
-# and a checkout of unseenet (the core) at /core.
+# container (tools/image-graphical/build.sh starts it); this repository is mounted
+# at /src, a checkout of unseenet-gui at /gui and one of unseenet (the core) at /core.
 #
 # Adapted from unseenet's tools/image/build-in-alpine.sh: the same layout, boot
 # loaders and update zip, plus a graphical session (cage, a kiosk Wayland
 # compositor, showing the graphical client full screen through WebKitGTK).
 #
-#   /src/tools/image/build-in-alpine.sh OUT_DIR VERSION [PORTABLE_USB_ZIP]
+#   /src/tools/image-graphical/build-in-alpine.sh OUT_DIR VERSION [PORTABLE_USB_ZIP]
 #
 # The result is one FAT32 partition, label UNSEENET, that is both
 #   - bootable (BIOS: syslinux, UEFI: GRUB): Alpine in "diskless" mode, from RAM,
@@ -25,7 +25,7 @@ LABEL=UNSEENET
 W=/work
 TREE=$W/tree             # what goes on the FAT partition
 OVL=$W/overlay           # the apkovl: /etc, /opt and /usr/local of the running system
-HERE=/src/tools/image
+HERE=/src/tools/image-graphical
 
 log() { printf '[image] %s\n' "$*"; }
 
@@ -122,7 +122,7 @@ cp -a /core $W/core && rm -rf $W/core/.git
 # (unseenet#548); UNSEENET_TUI names which
 TUI=${UNSEENET_TUI:-"unseenet-tui @ https://github.com/unseenet/unseenet-tui/archive/refs/heads/main.tar.gz"}
 /opt/unseenet/bin/pip install -q --no-cache-dir "$W/core" "$TUI"
-cp -a /src $W/web && rm -rf $W/web/.git $W/web/dist $W/web/dev
+cp -a /gui $W/web && rm -rf $W/web/.git $W/web/dist $W/web/dev
 /opt/unseenet/bin/pip install -q --no-cache-dir --no-deps "$W/web"
 /opt/unseenet/bin/pip install -q --no-cache-dir aiohttp pywebview
 sed -i "s/^__version__ = .*/__version__ = \"$VERSION\"/" \
@@ -131,7 +131,7 @@ find /opt/unseenet -name __pycache__ -type d -prune -exec rm -rf {} +
 
 log "the boot splash"
 mkdir -p $W/splash
-python3 "$HERE/make_splash.py" /src/src/unseenet_gui/static/icon.svg $W/splash/splash.rgba "$OUT/splash.png"
+python3 "$HERE/make_splash.py" /gui/src/unseenet_gui/static/icon.svg $W/splash/splash.rgba "$OUT/splash.png"
 
 log "system configuration (apkovl)"
 cp -a "$HERE/overlay/." "$OVL/"
