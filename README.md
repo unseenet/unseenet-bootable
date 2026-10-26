@@ -83,8 +83,9 @@ announced in `unseenet.releases`, so sticks hear of them through the network.
 
 ## Develop
 
-For now the image tools are run from checkouts of unseenet and unseenet-gui
-(`tools/image/` in each); next they move here (unseenet#550). Coming on this
+The image tools are here: `tools/image/` builds the terminal image and
+`tools/image-graphical/` the graphical one, each in an Alpine container, from
+checkouts of the core (and the graphical client) given as arguments. Coming on this
 base: a node mode with an encrypted partition and a setup menu
 (unseenet#551), and a Raspberry Pi image that runs a node (unseenet#552).
 
