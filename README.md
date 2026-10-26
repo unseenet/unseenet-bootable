@@ -81,6 +81,16 @@ announced in `unseenet.releases`, so sticks hear of them through the network.
 | by hand | *Run workflow*: `publish`, `force`, and where the zips come from |
 | a pull request | the images as artifacts |
 
+## Releases
+
+Each release of [unseenet-portable](https://github.com/unseenet/unseenet-portable)
+is made here too, with the same tag and parts: `follow-portable` checks once a
+day, tags it and builds it. A newer Tor makes a post-release there
+(`vX.Y.Z.postN`) and so here; since the images take tor from Alpine's package,
+the build waits up to 7 days for Alpine to have the newest stable tor
+(`tools/tor_versions.py check`). The maintainer signs `SHA256SUMS.txt`
+afterwards.
+
 ## Develop
 
 The image tools are here: `tools/image/` builds the terminal image and

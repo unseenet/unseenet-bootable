@@ -16,7 +16,12 @@ name: build
 # When: each night after the portable builds, only when the zips or the image
 # tools changed since the "dev" build here; by hand; on pull requests (as
 # artifacts). Publishing "dev" needs the secret UNSEENET_RELEASE_KEY.
+# A v* tag (made by follow-portable.yml when unseenet-portable releases) builds
+# that release: the portable release of the same tag, the parts at the tags its
+# versions.toml names, and the release here; the maintainer signs it afterwards.
 on:
+  push:
+    tags: ["v*"]                   # a release: the portable release of the same tag
   schedule:
     - cron: "17 5 * * *"           # after unseenet-portable (03:17) has finished
   pull_request:
@@ -61,14 +66,31 @@ jobs:
     outputs:
       build: ${{ steps.decide.outputs.build }}
       lines: ${{ steps.decide.outputs.lines }}
+      core: ${{ steps.parts.outputs.core }}
+      tui: ${{ steps.parts.outputs.tui }}
+      gui: ${{ steps.parts.outputs.gui }}
     steps:
+      - name: A release - the parts the portable release of this tag names
+        id: parts
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/unseenet/unseenet-portable/contents/versions.toml?ref=$GITHUB_REF_NAME" \
+            --jq .content | base64 -d > versions.toml
+          python3 -c "import tomllib; r = tomllib.load(open('versions.toml','rb'))['release']; print(f\"core={r['core']}\"); print(f\"tui={r['tui']}\"); print(f\"gui={r['gui']}\")" >> "$GITHUB_OUTPUT"
+          cat "$GITHUB_OUTPUT"
       - name: Fetch the USB zips
         env:
           GH_TOKEN: ${{ github.token }}
           FROM: ${{ inputs.zips || 'auto' }}
         run: |
           mkdir -p usb/terminal usb/graphical
-          if [ "$FROM" != legacy ] && gh release view dev -R unseenet/unseenet-portable >/dev/null 2>&1; then
+          if [ "${GITHUB_REF#refs/tags/v}" != "$GITHUB_REF" ]; then
+            gh release download "$GITHUB_REF_NAME" -R unseenet/unseenet-portable -p 'unseenet-*-usb.zip' -D usb/all
+            mv usb/all/unseenet-gui-*-usb.zip usb/graphical/ && mv usb/all/unseenet-*-usb.zip usb/terminal/
+            echo "From unseenet-portable $GITHUB_REF_NAME."
+          elif [ "$FROM" != legacy ] && gh release view dev -R unseenet/unseenet-portable >/dev/null 2>&1; then
             gh release download dev -R unseenet/unseenet-portable -p 'unseenet-*-usb.zip' -D usb/all
             mv usb/all/unseenet-gui-*-usb.zip usb/graphical/ && mv usb/all/unseenet-*-usb.zip usb/terminal/
             echo "From unseenet-portable dev."
@@ -88,6 +110,9 @@ jobs:
         run: |
           LINES=$(cd usb && sha256sum */*.zip | awk '{print "Made from " $2 " " $1}')
           { echo "lines<<EOF_LINES"; echo "$LINES"; echo "EOF_LINES"; } >> "$GITHUB_OUTPUT"
+          if [ "${GITHUB_REF#refs/tags/v}" != "$GITHUB_REF" ]; then
+            echo "A release: building."; echo "build=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
           if [ "$EVENT" = schedule ] && [ "$HAS_KEY" != true ]; then
             echo "::notice::No release key here yet: the nightly build is skipped."
             echo "build=false" >> "$GITHUB_OUTPUT"; exit 0
@@ -116,7 +141,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: unseenet/unseenet
-          ref: ${{ fromJSON(needs.gate.outputs.shas)['unseenet/unseenet'] }}
+          ref: ${{ needs.zips.outputs.core || fromJSON(needs.gate.outputs.shas)['unseenet/unseenet'] }}
           path: core
       - uses: actions/download-artifact@v4
         with:
@@ -128,7 +153,7 @@ jobs:
           VERSION=$(basename "$ZIP" | sed 's/^unseenet-\(.*\)-usb\.zip$/\1/')
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           # the terminal client, at the commit the gate saw (unseenet#548)
-          export UNSEENET_TUI="unseenet-tui @ https://github.com/unseenet/unseenet-tui/archive/${{ fromJSON(needs.gate.outputs.shas)['unseenet/unseenet-tui'] }}.tar.gz"
+          export UNSEENET_TUI="unseenet-tui @ https://github.com/unseenet/unseenet-tui/archive/${{ needs.zips.outputs.tui || fromJSON(needs.gate.outputs.shas)['unseenet/unseenet-tui'] }}.tar.gz"
           VERSION=$VERSION sh tools/image/build.sh core "$ZIP"
       - name: Boot it in QEMU (BIOS and UEFI) and run its self-test
         run: |
@@ -157,12 +182,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: unseenet/unseenet-gui
-          ref: ${{ fromJSON(needs.gate.outputs.shas)['unseenet/unseenet-gui'] }}
+          ref: ${{ needs.zips.outputs.gui || fromJSON(needs.gate.outputs.shas)['unseenet/unseenet-gui'] }}
           path: gui
       - uses: actions/checkout@v4
         with:
           repository: unseenet/unseenet
-          ref: ${{ fromJSON(needs.gate.outputs.shas)['unseenet/unseenet'] }}
+          ref: ${{ needs.zips.outputs.core || fromJSON(needs.gate.outputs.shas)['unseenet/unseenet'] }}
           path: core
       - uses: actions/download-artifact@v4
         with:
@@ -216,7 +241,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: unseenet/unseenet
-          ref: ${{ fromJSON(needs.gate.outputs.shas)['unseenet/unseenet'] }}
+          ref: ${{ needs.zips.outputs.core || fromJSON(needs.gate.outputs.shas)['unseenet/unseenet'] }}
           path: core
       - if: env.HAS_KEY == 'true'
         uses: actions/download-artifact@v4
@@ -259,3 +284,34 @@ jobs:
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y -qq tor
           sudo systemctl stop tor || true
           python core/tools/announce.py client-release dev files/SHA256SUMS.txt files/SHA256SUMS.txt.sig
+
+  release:
+    # A v* tag: the release here, with both images, the update zip and their
+    # checksums, made from unseenet-portable's release of the same tag. The
+    # maintainer signs SHA256SUMS.txt with the project key afterwards, as for
+    # unseenet-portable.
+    needs: [zips, terminal, graphical]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: image-*
+          path: files
+          merge-multiple: true
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          MADE_FROM: ${{ needs.zips.outputs.lines }}
+          PARTS: "core ${{ needs.zips.outputs.core }}, unseenet-tui ${{ needs.zips.outputs.tui }}, unseenet-gui ${{ needs.zips.outputs.gui }}"
+        run: |
+          rm -f files/*.png files/*.log
+          (cd files && sha256sum *.img.xz *.zip > SHA256SUMS.txt)
+          VERSION="${GITHUB_REF_NAME#v}"
+          TOR=$(python3 tools/tor_versions.py alpine 2>/dev/null || echo "?")
+          { awk -v v="$VERSION" '$0 ~ "^## \\[" v "\\]" {on=1; next} /^## \[/ {on=0} on' CHANGELOG.md
+            echo "Bootable images of Unseenet $VERSION, made from [unseenet-portable $GITHUB_REF_NAME](https://github.com/unseenet/unseenet-portable/releases/tag/$GITHUB_REF_NAME) ($PARTS); tor $TOR from Alpine."
+            echo; echo "$MADE_FROM"; } > notes.md
+          gh release create "$GITHUB_REF_NAME" files/* --title "Unseenet $GITHUB_REF_NAME, bootable" --notes-file notes.md
