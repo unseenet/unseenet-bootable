@@ -1,0 +1,63 @@
+name: follow-portable
+# The bootable images follow unseenet-portable's releases: the same tag - v0.5.0,
+# and the post-releases v0.5.0.post1, .post2, ... that a newer Tor makes there
+# (unseenet-portable#6) - with the same parts. Once a day, when unseenet-portable
+# has a release this repository has not, tag it here and build it.
+#
+# The images take tor from Alpine's package (unseenet-bootable#9), so a Tor fix
+# reaches them once Alpine has packaged it: if Alpine's tor is older than the
+# newest stable tor, wait - checking each day - up to 7 days after the portable
+# release, then build anyway; the release notes say which tor the images carry.
+# A tag pushed with this workflow's token starts no workflow, so the build is
+# started on the tag here.
+on:
+  schedule:
+    - cron: "47 7 * * *"            # after unseenet-portable's nightly build and tor-update
+  workflow_dispatch:
+    inputs:
+      now:
+        description: "Build the newest portable release now, even if Alpine's tor is older"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: follow-portable
+  cancel-in-progress: false
+
+jobs:
+  follow:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0                    # the tags made so far
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          NOW: ${{ inputs.now || false }}
+        run: |
+          TAG=$(gh release list -R unseenet/unseenet-portable --exclude-pre-releases --limit 1 \
+                  --json tagName -q '.[0].tagName')
+          [ -n "$TAG" ] || { echo "unseenet-portable has no release yet"; exit 0; }
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "$TAG is here already"; exit 0
+          fi
+          if ! python tools/tor_versions.py check; then
+            PUBLISHED=$(gh release view "$TAG" -R unseenet/unseenet-portable --json publishedAt -q .publishedAt)
+            AGE=$(( ( $(date +%s) - $(date -d "$PUBLISHED" +%s) ) / 86400 ))
+            if [ "$NOW" != true ] && [ "$AGE" -lt 7 ]; then
+              echo "::notice::Alpine's tor is older than the newest stable tor: waiting (day $AGE of 7) before building $TAG."
+              exit 0
+            fi
+            echo "::warning::Building $TAG with Alpine's older tor (day $AGE): the release notes say which."
+          fi
+          git tag "$TAG"
+          git push -q origin "$TAG"
+          gh workflow run build.yml --ref "$TAG"
+          echo "::notice::Tagged $TAG and started the build on it."
